@@ -174,8 +174,7 @@ def run_test(data, e2e_lr, tnc_lr, cpc_lr, trip_lr, data_path, window_size, n_cr
     del x, y, x_test, y_test
     e2e_accs, e2e_aucs, e2e_auprcs = [], [], []
     tnc_accs, tnc_aucs, tnc_auprcs = [], [], []
-    cpc_accs, cpc_aucs, cpc_auprcs = [], [], []
-    trip_accs, trip_aucs, trip_auprcs = [], [], []
+   
     for cv in range(n_cross_val):
         shuffled_inds = list(range(len(x_window)))
         random.shuffle(shuffled_inds)
@@ -205,22 +204,7 @@ def run_test(data, e2e_lr, tnc_lr, cpc_lr, trip_lr, data_path, window_size, n_cr
             tnc_encoder.load_state_dict(tnc_checkpoint['encoder_state_dict'])
             tnc_classifier = WFClassifier(encoding_size=encoding_size, output_size=4)
             tnc_model = torch.nn.Sequential(tnc_encoder, tnc_classifier).to(device)
-
-            cpc_encoder = WFEncoder(encoding_size=encoding_size).to(device)
-            if not os.path.exists('./ckpt/waveform_cpc/checkpoint_%d.pth.tar'%cv):
-                RuntimeError('Checkpoint for CPC encoder does not exist!')
-            cpc_checkpoint = torch.load('./ckpt/waveform_cpc/checkpoint_%d.pth.tar'%cv)
-            cpc_encoder.load_state_dict(cpc_checkpoint['encoder_state_dict'])
-            cpc_classifier = WFClassifier(encoding_size=encoding_size, output_size=4)
-            cpc_model = torch.nn.Sequential(cpc_encoder, cpc_classifier).to(device)
-
-            trip_encoder = WFEncoder(encoding_size=encoding_size).to(device)
-            if not os.path.exists('./ckpt/waveform_trip/checkpoint_%d.pth.tar'%cv):
-                RuntimeError('Checkpoint for Triplet Loss encoder does not exist!')
-            trip_checkpoint = torch.load('./ckpt/waveform_trip/checkpoint_%d.pth.tar'%cv)
-            trip_encoder.load_state_dict(trip_checkpoint['encoder_state_dict'])
-            trip_classifier = WFClassifier(encoding_size=encoding_size, output_size=4)
-            trip_model = torch.nn.Sequential(trip_encoder, trip_classifier).to(device)
+            
             n_epochs = 8
             n_epoch_e2e = 8
 
@@ -235,17 +219,7 @@ def run_test(data, e2e_lr, tnc_lr, cpc_lr, trip_lr, data_path, window_size, n_cr
             tnc_classifier = StateClassifier(input_size=encoding_size, output_size=4).to(device)
             tnc_model = torch.nn.Sequential(tnc_encoder, tnc_classifier).to(device)
 
-            cpc_encoder = RnnEncoder(hidden_size=100, in_channel=3, encoding_size=encoding_size, device=device)
-            cpc_checkpoint = torch.load('./ckpt/simulation_cpc/checkpoint_%d.pth.tar'%cv)
-            cpc_encoder.load_state_dict(cpc_checkpoint['encoder_state_dict'])
-            cpc_classifier = StateClassifier(input_size=encoding_size, output_size=4).to(device)
-            cpc_model = torch.nn.Sequential(cpc_encoder, cpc_classifier).to(device)
-
-            trip_encoder = RnnEncoder(hidden_size=100, in_channel=3, encoding_size=encoding_size, device=device)
-            trip_checkpoint = torch.load('./ckpt/simulation_trip/checkpoint_%d.pth.tar'%cv)
-            trip_encoder.load_state_dict(trip_checkpoint['encoder_state_dict'])
-            trip_classifier = StateClassifier(input_size=encoding_size, output_size=4).to(device)
-            trip_model = torch.nn.Sequential(trip_encoder, trip_classifier).to(device)
+            
             n_epochs = 30
             n_epoch_e2e = 100
 
@@ -260,17 +234,6 @@ def run_test(data, e2e_lr, tnc_lr, cpc_lr, trip_lr, data_path, window_size, n_cr
             tnc_classifier = StateClassifier(input_size=encoding_size, output_size=6).to(device)
             tnc_model = torch.nn.Sequential(tnc_encoder, tnc_classifier).to(device)
 
-            cpc_encoder = RnnEncoder(hidden_size=100, in_channel=561, encoding_size=encoding_size, device=device)
-            cpc_checkpoint = torch.load('./ckpt/har_cpc/checkpoint_%d.pth.tar'%cv)
-            cpc_encoder.load_state_dict(cpc_checkpoint['encoder_state_dict'])
-            cpc_classifier = StateClassifier(input_size=encoding_size, output_size=6).to(device)
-            cpc_model = torch.nn.Sequential(cpc_encoder, cpc_classifier).to(device)
-
-            trip_encoder = RnnEncoder(hidden_size=100, in_channel=561, encoding_size=encoding_size, device=device)
-            trip_checkpoint = torch.load('./ckpt/har_trip/checkpoint_%d.pth.tar'%cv)
-            trip_encoder.load_state_dict(trip_checkpoint['encoder_state_dict'])
-            trip_classifier = StateClassifier(input_size=encoding_size, output_size=6).to(device)
-            trip_model = torch.nn.Sequential(trip_encoder, trip_classifier).to(device)
             n_epochs = 50
             n_epoch_e2e = 100
 
@@ -283,33 +246,19 @@ def run_test(data, e2e_lr, tnc_lr, cpc_lr, trip_lr, data_path, window_size, n_cr
         best_acc_tnc, best_auc_tnc, best_auprc_tnc = train(train_loader, valid_loader, tnc_classifier, tnc_lr,
                                            encoder=tnc_encoder, data_type=data, n_epochs=n_epochs, type='tnc', cv=cv)
         print('TNC: ', best_acc_tnc*100, best_auc_tnc, best_auprc_tnc)
-        # ***** CPC *****
-        best_acc_cpc, best_auc_cpc, best_auprc_cpc = train(train_loader, valid_loader, cpc_classifier, cpc_lr,
-                                           encoder=cpc_encoder, data_type=data, n_epochs=n_epochs, type='cpc', cv=cv)
-        print('CPC: ', best_acc_cpc*100, best_auc_cpc, best_auprc_cpc)
-        # ***** Trip *****
-        best_acc_trip, best_auc_trip, best_auprc_trip = train(train_loader, valid_loader, trip_classifier, trip_lr,
-                                             encoder=trip_encoder, data_type=data, n_epochs=n_epochs, type='trip', cv=cv)
-        print('TRIP: ', best_acc_trip*100, best_auc_trip, best_auprc_trip)
-
+        
         if data == 'waveform':
             # The waveform dataset is very small and sparse. If due to class imbalance there are no samples of a
             # particular class in the test set, report the validation performance
             _, test_acc_e2e, test_auc_e2e, test_auprc_e2e, _ = epoch_run(e2e_model, dataloader=valid_loader, train=False)
             _, test_acc_tnc, test_auc_tnc, test_auprc_tnc, _ = epoch_run_encoder(tnc_encoder, tnc_classifier,
                                                                                  dataloader=valid_loader, train=False)
-            _, test_acc_cpc, test_auc_cpc, test_auprc_cpc, _ = epoch_run_encoder(cpc_encoder, cpc_classifier,
-                                                                                 dataloader=valid_loader, train=False)
-            _, test_acc_trip, test_auc_trip, test_auprc_trip, _ = epoch_run_encoder(trip_encoder, trip_classifier,
-                                                                                    dataloader=valid_loader, train=False)
+           
         else:
             _, test_acc_e2e, test_auc_e2e, test_auprc_e2e, _ = epoch_run(e2e_model, dataloader=test_loader, train=False)
             _, test_acc_tnc, test_auc_tnc, test_auprc_tnc, _ = epoch_run_encoder(tnc_encoder, tnc_classifier,
                                                                                  dataloader=test_loader, train=False)
-            _, test_acc_cpc, test_auc_cpc, test_auprc_cpc, _ = epoch_run_encoder(cpc_encoder, cpc_classifier,
-                                                                                 dataloader=test_loader, train=False)
-            _, test_acc_trip, test_auc_trip, test_auprc_trip, _ = epoch_run_encoder(trip_encoder, trip_classifier,
-                                                                                    dataloader=test_loader, train=False)
+            
 
         e2e_accs.append(test_acc_e2e)
         e2e_aucs.append(test_auc_e2e)
@@ -317,19 +266,12 @@ def run_test(data, e2e_lr, tnc_lr, cpc_lr, trip_lr, data_path, window_size, n_cr
         tnc_accs.append(test_acc_tnc)
         tnc_aucs.append(test_auc_tnc)
         tnc_auprcs.append(test_auprc_tnc)
-        cpc_accs.append(test_acc_cpc)
-        cpc_aucs.append(test_auc_cpc)
-        cpc_auprcs.append(test_auprc_cpc)
-        trip_accs.append(test_acc_trip)
-        trip_aucs.append(test_auc_trip)
-        trip_auprcs.append(test_auprc_trip)
 
         with open("./outputs/%s_classifiers.txt"%data, "a") as f:
             f.write("\n\nPerformance result for a fold" )
             f.write("End-to-End model: \t AUC: %s\t Accuracy: %s \n\n" % (str(best_auc_e2e), str(100*best_acc_e2e)))
             f.write("TNC model: \t AUC: %s\t Accuracy: %s \n\n" % (str(best_auc_tnc), str(100*best_acc_tnc)))
-            f.write("CPC model: \t AUC: %s\t Accuracy: %s \n\n" % (str(best_auc_cpc), str(100*best_acc_cpc)))
-            f.write("Triplet Loss model: \t AUC: %s\t Accuracy: %s \n\n" % (str(best_auc_trip), str(100*best_acc_trip)))
+            
 
         torch.cuda.empty_cache()
 
@@ -340,12 +282,6 @@ def run_test(data, e2e_lr, tnc_lr, cpc_lr, trip_lr, data_path, window_size, n_cr
     print('TNC model: \t Accuracy: %.2f +- %.2f \t AUC: %.3f +- %.3f \t AUPRC: %.3f +- %.3f'%
           (100 * np.mean(tnc_accs), 100 * np.std(tnc_accs), np.mean(tnc_aucs), np.std(tnc_aucs),
            np.mean(tnc_auprcs), np.std(tnc_auprcs)))
-    print('CPC model: \t Accuracy: %.2f +- %.2f \t AUC: %.3f +- %.3f \t AUPRC: %.3f +- %.3f'%
-          (100 * np.mean(cpc_accs), 100 * np.std(cpc_accs), np.mean(cpc_aucs), np.std(cpc_aucs),
-           np.mean(cpc_auprcs), np.std(cpc_auprcs)))
-    print('Trip model: \t Accuracy: %.2f +- %.2f \t AUC: %.3f +- %.3f \t AUPRC: %.3f +- %.3f'%
-          (100 * np.mean(trip_accs), 100 * np.std(trip_accs), np.mean(trip_aucs), np.std(trip_aucs),
-           np.mean(trip_auprcs), np.std(trip_auprcs)))
 
 
 if __name__=='__main__':
